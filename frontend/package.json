@@ -1,0 +1,20 @@
+{
+  "name": "enable3d-ammojs-astro-example",
+  "type": "module",
+  "version": "0.0.1",
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro",
+    "deploy": "gh-pages -d dist"
+  },
+  "dependencies": {
+    "astro": "^4.3.3",
+    "gh-pages": "^6.1.1"
+  },
+  "devDependencies": {
+    "enable3d": "^0.25.4"
+  }
+}

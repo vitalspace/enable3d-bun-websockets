@@ -1,0 +1,189 @@
+---
+
+---
+
+<script>
+  // @ts-nocheck
+  import { Project, PhysicsLoader, Scene3D } from "enable3d";
+
+  import { AddPlayer } from "../utils/player";
+
+  class MainScene extends Scene3D {
+    userId: string;
+    man: any;
+    socket = new WebSocket("ws://localhost:3000");
+    constructor() {
+      super("MainScene");
+    }
+
+    init() {
+      this.setupSocket();
+
+      this.renderer.setPixelRatio(Math.max(1, window.devicePixelRatio / 2));
+    }
+
+    async preload() {
+      await this.load.preload("man", "assets/box_man.glb");
+    }
+
+    async create() {
+      const resize = () => {
+        const newWidth = window.innerWidth;
+        const newHeight = window.innerHeight;
+
+        this.renderer.setSize(newWidth, newHeight);
+        this.camera.aspect = newWidth / newHeight;
+        this.camera.updateProjectionMatrix();
+      };
+
+      window.onresize = resize;
+      resize();
+
+      const { lights } = await this.warpSpeed("ground", "-orbitControls");
+
+      const { hemisphereLight, ambientLight, directionalLight } = lights;
+      const intensity = 1;
+      hemisphereLight.intensity = intensity;
+      ambientLight.intensity = intensity;
+      directionalLight.intensity = intensity;
+
+      this.physics.debug.enable();
+    }
+
+    setupSocket() {
+      let playersObject = [];
+
+      this.socket.addEventListener("open", () => {
+        console.log("Connection opend");
+      });
+
+      this.socket.addEventListener("message", async (msg) => {
+        const data = JSON.parse(msg.data);
+        switch (data.type) {
+          case "playerId":
+            this.playerId = data.id;
+            break;
+          case "currentPlayers":
+            Object.keys(data.players).forEach(async (id) => {
+              const { playerId, x, y, z, r } = data.players[id];
+              if (playerId === this.playerId) {
+                this.man = new AddPlayer(
+                  this,
+                  playerId,
+                  { x, y, z },
+                  true,
+                  this.socket
+                );
+                this.man.init();
+              } else {
+                const other = new AddPlayer(this, playerId, { x, y, z }, false);
+                await other.init();
+                playersObject.push(other.man);
+              }
+            });
+            break;
+
+          case "newPlayer":
+            const { playerId, x, y, z, r } = data.player;
+            const other = new AddPlayer(this, playerId, { x, y, z }, false);
+            await other.init();
+            playersObject.push(other.man);
+            break;
+
+          case "playerMoved":
+            playersObject.forEach((player) => {
+              if (data.playerInfo.playerId === player.uuid) {
+                player.position.x = data.playerInfo.x;
+                player.position.y = data.playerInfo.y;
+                player.position.z = data.playerInfo.z;
+                player.rotation.x = data.playerInfo.r._x;
+                player.rotation.y = data.playerInfo.r._y;
+                player.rotation.z = data.playerInfo.r._z;
+
+                if (player.anims.current !== data.playerInfo.animation) {
+                  player.anims.play(data.playerInfo.animation);
+                }
+              }
+            });
+            break;
+
+          case "disconnect":
+            playersObject.forEach(async (players) => {
+              if (data.playerId === players.uuid) {
+                const actPlayer = playersObject.filter(
+                  (item) => item.uuid !== data.playerId
+                );
+                playersObject = actPlayer;
+                // this.physics.add.existing(players, { shape: "sphere" });
+                // this.destroy(players);
+                players.visible = false;
+              }
+            });
+            break;
+        }
+      });
+    }
+
+    update(time, delta) {
+      this.man.update(time, delta);
+    }
+  }
+
+  PhysicsLoader(
+    "lib/ammo/kripken",
+    () => new Project({ scenes: [MainScene], antialias: true })
+  );
+</script>
+
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/x-icon" href="./favicon.svg" />
+    <title>Enable3d Ammojs Astro Example.</title>
+  </head>
+  <body>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        font-family:
+          BlinkMacSystemFont,
+          -apple-system,
+          "Segoe UI",
+          Roboto,
+          Oxygen,
+          Ubuntu,
+          Cantarell,
+          "Fira Sans",
+          "Droid Sans",
+          "Helvetica Neue",
+          Helvetica,
+          Arial,
+          sans-serif;
+      }
+
+      body {
+        color: #1b1b1b;
+        overflow: hidden;
+      }
+
+      div#info-text {
+        position: relative;
+        justify-content: center;
+        font-size: 18px;
+        height: 0;
+        top: 36px;
+        z-index: 1;
+        margin: 0px 48px;
+        text-align: center;
+      }
+
+      div#info-text p {
+        margin-bottom: 16px;
+      }
+    </style>
+    <div id="info-text">Enable3d Ammojs Astro + Bun WebSocket Example.</div>
+  </body>
+</html>
