@@ -1,5 +1,4 @@
-import { serve, udpSocket, type ServerWebSocket } from "bun";
-import { convertCompilerOptionsFromJson } from "typescript";
+import { serve, type ServerWebSocket } from "bun";
 
 interface Player {
   x: number;
